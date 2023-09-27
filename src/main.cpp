@@ -3,11 +3,22 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <WiFi.h>
+#include <esp_now.h>
+
+uint8_t mac_peer[] = {0x8C, 0xAA, 0xB5, 0x78, 0x77, 0x4B};
+esp_now_peer_info_t peer;
+
+typedef struct message {
+   int red;
+   int green;
+};
+struct message myMessage;
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
-#define accpotpin 13
-#define servopotpin 12
+#define accpotpin 32
+#define servopotpin 35
 
 int acc, servo, accheight, servoheight, firstmap, secondmap = 0;
 char marcha[] = "";
@@ -98,6 +109,25 @@ void setup() {
   display.display();
   delay(1000);
   display.clearDisplay();
+
+  WiFi.mode(WIFI_STA);
+  Serial.print("Mac Address: ");
+  Serial.print(WiFi.macAddress());
+  Serial.println("ESP32 ESP-Now Broadcast");
+  if (esp_now_init() != 0) {
+    Serial.println("Problem during ESP-NOW init");
+    return;
+  }
+
+  // esp_wifi_set_channel(chan,WIFI_SECOND_CHAN_NONE)
+  memcpy(peer.peer_addr, mac_peer, 6);
+  peer.channel = 0;
+  peer.encrypt = 0;
+  // Register the peer
+  Serial.println("Registering a peer 1");
+  if ( esp_now_add_peer(&peer) == ESP_OK) {
+    Serial.println("Peer 1 added");
+  }  
 }
 
 void loop() {
@@ -107,6 +137,10 @@ void loop() {
   accheight = map(acc, 0, 4095, 0, 255);
   servoheight = map(servo, 0, 4095, 0, 255);
   
+  myMessage.red = accheight;
+  myMessage.green = servoheight;
+  esp_now_send(NULL, (uint8_t *) &myMessage, sizeof(myMessage));
+
   dashboard(servoheight, accheight);
   delay(10);
 }
